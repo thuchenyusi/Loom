@@ -15,7 +15,7 @@ describe('Decision DSL validation and parsing', () => {
     ir.samples[0].path.pop();
     expect(example.samples.alice.path).toHaveLength(5);
   });
-  it.each([null, {}, { ...example, type: 'function' }, { ...example, nodes: {} }, { ...example, groups: {} }])('rejects malformed or unsupported DSL: %j', input => {
+  it.each([null, {}, { ...example, type: 'function' }, { ...example, nodes: {} }, { ...example, unsupported: {} }])('rejects malformed or unsupported DSL: %j', input => {
     expect(validateDecisionDSL(input)).toMatchObject({ valid: false, errors: expect.arrayContaining([expect.objectContaining({ code: 'SCHEMA_VALIDATION_ERROR' })]) });
     expect(() => parseDecisionDSL(input)).toThrow(DiagramValidationError);
   });

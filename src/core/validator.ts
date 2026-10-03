@@ -23,8 +23,23 @@ export function validateDecisionDSL(input: unknown): ValidationResult {
   }
   const errors: ValidationIssue[] = [];
   const exists = (id: string) => Object.hasOwn(input.nodes, id);
+  const groups = input.groups ?? {};
+  const groupExists = (id: string) => Object.hasOwn(groups, id);
+  for (const [id, group] of Object.entries(groups)) {
+    const path = `/groups/${pointer(id)}`;
+    if (exists(id)) errors.push({ code: 'DUPLICATE_ELEMENT_ID', message: `Group "${id}" conflicts with a node ID`, path });
+    if (group.parent && !groupExists(group.parent)) errors.push({ code: 'UNKNOWN_GROUP', message: `Unknown parent group "${group.parent}"`, path: `${path}/parent` });
+    const visited = new Set<string>([id]);
+    let parent = group.parent;
+    while (parent && groupExists(parent)) {
+      if (visited.has(parent)) { errors.push({ code: 'CYCLIC_GROUP', message: 'Group hierarchy must not contain a cycle', path: `${path}/parent` }); break; }
+      visited.add(parent);
+      parent = groups[parent].parent;
+    }
+  }
   if (!exists(input.start)) errors.push({ code: 'START_NODE_NOT_FOUND', message: `Start node "${input.start}" does not exist`, path: '/start' });
   for (const [id, node] of Object.entries(input.nodes)) {
+    if (node.group && !groupExists(node.group)) errors.push({ code: 'UNKNOWN_GROUP', message: `Unknown group "${node.group}"`, path: `/nodes/${pointer(id)}/group` });
     if (node.type !== 'decision') continue;
     for (const branch of ['yes', 'no'] as const) {
       if (!exists(node[branch])) errors.push({ code: 'TARGET_NODE_NOT_FOUND', message: `Target "${node[branch]}" does not exist`, path: `/nodes/${pointer(id)}/${branch}` });

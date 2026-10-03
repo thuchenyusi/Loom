@@ -1,0 +1,5 @@
+title: Loom Jekyll Demo
+baseurl: "/jekyll"
+url: ""
+markdown: kramdown
+exclude: [Gemfile, Gemfile.lock, README.md]

@@ -1,0 +1,84 @@
+{
+  "type": "decision",
+  "id": "authentication-flow",
+  "start": "entry",
+  "groups": {
+    "authentication": {
+      "label": "Authentication · 身份认证",
+      "collapsed": false
+    },
+    "verification": {
+      "label": "Verification · 二次验证",
+      "parent": "authentication",
+      "collapsed": true
+    }
+  },
+  "nodes": {
+    "entry": {
+      "type": "decision",
+      "label": "访问受保护资源？",
+      "yes": "account",
+      "no": "public"
+    },
+    "account": {
+      "type": "decision",
+      "label": "账户有效？",
+      "group": "authentication",
+      "yes": "role",
+      "no": "deny"
+    },
+    "role": {
+      "type": "decision",
+      "label": "有资源权限？",
+      "group": "authentication",
+      "yes": "mfa",
+      "no": "deny"
+    },
+    "mfa": {
+      "type": "decision",
+      "label": "MFA 已通过？",
+      "group": "verification",
+      "yes": "device",
+      "no": "deny"
+    },
+    "device": {
+      "type": "decision",
+      "label": "设备可信？",
+      "group": "verification",
+      "yes": "allow",
+      "no": "deny"
+    },
+    "allow": {
+      "type": "result",
+      "label": "允许访问"
+    },
+    "deny": {
+      "type": "result",
+      "label": "拒绝访问"
+    },
+    "public": {
+      "type": "result",
+      "label": "公开内容"
+    }
+  },
+  "samples": {
+    "alice": {
+      "label": "Alice · 通过全部检查",
+      "path": [
+        "entry",
+        "account",
+        "role",
+        "mfa",
+        "device",
+        "allow"
+      ]
+    },
+    "guest": {
+      "label": "Guest · 公开访问",
+      "path": [
+        "entry",
+        "public"
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "../schemas/function.schema.json",
+  "type": "function",
+  "id": "risk-function",
+  "expression": "x * x / 10",
+  "domain": {
+    "x": [
+      -5,
+      5
+    ],
+    "y": [
+      -2,
+      5
+    ]
+  },
+  "interactive": {
+    "point": {
+      "x": 2
+    },
+    "showCoordinate": true
+  }
+}

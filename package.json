@@ -12,7 +12,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/diagram.js"
     },
-    "./schemas/decision.schema.json": "./schemas/decision.schema.json"
+    "./schemas/decision.schema.json": "./schemas/decision.schema.json",
+    "./schemas/function.schema.json": "./schemas/function.schema.json",
+    "./schemas/diagram.schema.json": "./schemas/diagram.schema.json"
   },
   "files": [
     "dist",
@@ -25,11 +27,13 @@
     "build": "npm run typecheck && vite build && tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "preview": "vite preview --host 127.0.0.1"
+    "prepare:jekyll": "node scripts/prepare-jekyll.mjs",
+    "build:jekyll": "npm run build && npm run prepare:jekyll && jekyll build --source integrations/jekyll/example --destination integrations/jekyll/example/_site"
   },
   "dependencies": {
     "@antv/g6": "^5.1.0",
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "jsxgraph": "^1.13.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

@@ -4,3 +4,8 @@ dist/
 test-results/
 playwright-report/
 *.tsbuildinfo
+
+integrations/jekyll/example/_site/
+integrations/jekyll/example/.jekyll-cache/
+integrations/jekyll/example/assets/
+integrations/jekyll/example/_includes/diagram.html

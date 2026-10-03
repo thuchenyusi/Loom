@@ -10,7 +10,9 @@ createServer(async (request, response) => {
   }
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-    const file = resolve(root, `.${pathname === '/' ? '/examples/02-sample-highlight.html' : pathname}`);
+    const file = pathname.startsWith('/jekyll/')
+      ? resolve(root, 'integrations/jekyll/example/_site', `.${pathname.slice('/jekyll'.length)}${pathname.endsWith('/') ? 'index.html' : ''}`)
+      : resolve(root, `.${pathname === '/' ? '/examples/05-user-manual.html' : pathname}`);
     const local = relative(root, file);
     if (isAbsolute(local) || local === '..' || local.startsWith('..\\') || local.startsWith('../') || local.split(/[\\/]/).some(part => part.startsWith('.'))) {
       response.writeHead(403).end(); return;

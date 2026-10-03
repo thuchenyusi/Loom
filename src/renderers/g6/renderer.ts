@@ -1,8 +1,10 @@
 import { Graph } from '@antv/g6';
+import type { IPointerEvent } from '@antv/g6';
+import { DiagramEventEmitter } from '../../core/events';
 import type { DiagramRenderer, GraphDiagramInstance, GraphIR, RenderOptions } from '../../core/types';
 import { validateGraphPath } from '../../core/validator';
 
-export class G6Renderer implements DiagramRenderer<GraphIR> {
+export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance> {
   async mount(container: HTMLElement, diagram: GraphIR, options: RenderOptions = {}): Promise<GraphDiagramInstance> {
     const height = options.height ?? 560;
     if (!Number.isFinite(height) || height <= 0) throw new RangeError('height must be a positive finite number');
@@ -35,6 +37,29 @@ export class G6Renderer implements DiagramRenderer<GraphIR> {
       toolbar.append(label);
       root.append(toolbar);
     }
+    const events = new DiagramEventEmitter();
+    const collapsed = new Set(diagram.groups.filter(group => group.collapsed).map(group => group.id));
+    const groupButtons = new Map<string, HTMLButtonElement>();
+    if (diagram.groups.length) {
+      const controls = document.createElement('div');
+      controls.className = 'loom-group-controls';
+      controls.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid #e8edf5';
+      diagram.groups.forEach(group => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.group = group.id;
+        button.style.cssText = 'padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:inherit;font:inherit;cursor:pointer';
+        groupButtons.set(group.id, button);
+        controls.append(button);
+      });
+      root.append(controls);
+    }
+    const syncGroupButtons = () => diagram.groups.forEach(group => {
+      const button = groupButtons.get(group.id)!;
+      button.textContent = `${collapsed.has(group.id) ? '展开' : '折叠'}：${group.label}`;
+      button.setAttribute('aria-expanded', String(!collapsed.has(group.id)));
+    });
+    syncGroupButtons();
     root.append(canvas, status);
     container.append(root);
     let graph: Graph;
@@ -44,10 +69,11 @@ export class G6Renderer implements DiagramRenderer<GraphIR> {
         width: Math.max(container.clientWidth || 800, 1), height,
         animation: false, autoFit: 'view', padding: 36,
         data: {
-          nodes: diagram.nodes.map(node => ({ id: node.id, data: { kind: node.kind, label: node.label } })),
+          nodes: diagram.nodes.map(node => ({ id: node.id, combo: node.group, data: { kind: node.kind, label: node.label } })),
+          combos: diagram.groups.map(group => ({ id: group.id, combo: group.parent, data: { label: group.label } })),
           edges: diagram.edges.map(edge => ({ id: edge.id, source: edge.source, target: edge.target, data: { label: edge.label } })),
         },
-        layout: { type: 'antv-dagre', rankdir: 'TB', nodeSize: [184, 56], nodesep: 30, ranksep: 36 },
+        layout: { type: 'antv-dagre', rankdir: 'TB', nodeSize: [184, 56], nodesep: 30, ranksep: 36, sortByCombo: true },
         node: {
           type: 'rect',
           style: {
@@ -61,6 +87,7 @@ export class G6Renderer implements DiagramRenderer<GraphIR> {
           state: {
             highlight: { fill: '#dbeafe', stroke: '#2563eb', lineWidth: 3 },
             dim: { opacity: 0.22 },
+            active: { lineWidth: 3 },
           },
         },
         edge: {
@@ -72,13 +99,34 @@ export class G6Renderer implements DiagramRenderer<GraphIR> {
           },
           state: { highlight: { stroke: '#2563eb', lineWidth: 3, labelFill: '#2563eb' }, dim: { opacity: 0.16 } },
         },
-        behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
+        combo: {
+          type: 'rect',
+          style: { padding: [34, 20, 20, 20], radius: 12, fill: '#f6f8fc', stroke: '#94a3b8', lineWidth: 1, opacity: 1,
+            labelText: datum => String(datum.data?.label ?? datum.id), labelPlacement: datum => datum.style?.collapsed ? 'center' : 'top', labelFill: '#334155', labelFontSize: 14,
+            collapsedSize: [184, 64], collapsedFill: '#f1f5f9', collapsedMarker: false },
+          state: { highlight: { stroke: '#2563eb', lineWidth: 3 }, dim: { opacity: 0.22 } },
+        },
+        behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element', { type: 'hover-activate', animation: false }],
+
       });
     } catch (error) {
       root.remove();
       throw error;
     }
-    try { await graph.render(); } catch (error) {
+    const groupDepth = (id: string): number => {
+      let depth = 0;
+      let parent = diagram.groups.find(group => group.id === id)?.parent;
+      while (parent) { depth++; parent = diagram.groups.find(group => group.id === parent)?.parent; }
+      return depth;
+    };
+    try {
+      // Layout the full graph first; G6 reattaches external edges on collapse.
+      await graph.render();
+      for (const group of [...diagram.groups].sort((a, b) => groupDepth(b.id) - groupDepth(a.id))) {
+        if (group.collapsed) await graph.collapseElement(group.id, false);
+      }
+      if (collapsed.size) await graph.fitView();
+    } catch (error) {
       graph.destroy();
       root.remove();
       throw error;
@@ -94,30 +142,85 @@ export class G6Renderer implements DiagramRenderer<GraphIR> {
       pending = next.catch(() => {});
       return next;
     };
+    let currentPath: string[] | undefined;
     const states = (path?: readonly string[]): Record<string, string[]> => {
       const visited = new Set(path);
       const steps = new Set(path?.slice(1).map((target, index) => JSON.stringify([path[index], target])));
+      const visitedGroups = new Set<string>();
+      for (const node of diagram.nodes) {
+        if (!visited.has(node.id)) continue;
+        let groupId = node.group;
+        while (groupId) { visitedGroups.add(groupId); groupId = diagram.groups.find(group => group.id === groupId)?.parent; }
+      }
       return Object.fromEntries([
+        ...diagram.groups.map(group => [group.id, path ? [visitedGroups.has(group.id) ? 'highlight' : 'dim'] : []]),
         ...diagram.nodes.map(node => [node.id, path ? [visited.has(node.id) ? 'highlight' : 'dim'] : []]),
         ...diagram.edges.map(edge => [edge.id, path ? [steps.has(JSON.stringify([edge.source, edge.target])) ? 'highlight' : 'dim'] : []]),
       ]);
     };
+    const assertGroup = (id: string) => { if (!diagram.groups.some(group => group.id === id)) throw new Error(`Unknown group "${id}"`); };
+    const setCollapsed = (id: string, value: boolean) => enqueue(async () => {
+      assertGroup(id);
+      if (collapsed.has(id) === value) return;
+      // A hidden child can still record its own collapsed flag for the next parent expansion.
+      let parent = diagram.groups.find(group => group.id === id)?.parent;
+      let hidden = false;
+      while (parent) {
+        if (collapsed.has(parent)) hidden = true;
+        parent = diagram.groups.find(group => group.id === parent)?.parent;
+      }
+      if (hidden) {
+        graph.updateComboData([{ id, style: { collapsed: value } }]);
+      } else {
+        if (value) await graph.collapseElement(id, false);
+        else await graph.expandElement(id, false);
+      }
+      if (value) collapsed.add(id); else collapsed.delete(id);
+      await graph.setElementState(states(currentPath), false);
+      await graph.fitView();
+      syncGroupButtons();
+    });
     const instance: GraphDiagramInstance = {
+      kind: 'graph',
+      on: (event, listener) => {
+        if (destroyed) throw new Error('Diagram has been destroyed');
+        return events.on(event, listener);
+      },
+      collapse: id => setCollapsed(id, true),
+      expand: id => setCollapsed(id, false),
+      focus: id => enqueue(async () => {
+        const node = diagram.nodes.find(node => node.id === id);
+        if (!node) throw new Error(`Unknown node "${id}"`);
+        const ancestors: string[] = [];
+        let groupId = node.group;
+        while (groupId) { ancestors.unshift(groupId); groupId = diagram.groups.find(group => group.id === groupId)?.parent; }
+        for (const ancestor of ancestors) if (collapsed.has(ancestor)) {
+          await graph.expandElement(ancestor, false);
+          collapsed.delete(ancestor);
+        }
+        await graph.setElementState(states(currentPath), false);
+        syncGroupButtons();
+        await graph.focusElement(id, false);
+      }),
       highlightPath(path) {
         try { validateGraphPath(diagram, path); } catch (error) { return Promise.reject(error); }
         const snapshot = [...path];
         return enqueue(async () => {
+          currentPath = snapshot;
           await graph.setElementState(states(snapshot), false);
           const sampleIndex = diagram.samples.findIndex(sample => sample.path.length === snapshot.length && sample.path.every((id, index) => id === snapshot[index]));
           if (selector) selector.value = sampleIndex >= 0 ? String(sampleIndex) : '';
           status.textContent = `当前路径：${snapshot.map(id => diagram.nodes.find(node => node.id === id)!.label).join(' → ')}`;
+          events.emit('change', { kind: 'graph', value: { path: [...snapshot] } });
         });
       },
       clearHighlight() {
         return enqueue(async () => {
+          currentPath = undefined;
           await graph.setElementState(states(), false);
           if (selector) selector.value = '';
           status.textContent = '完整决策图 · 拖动平移，滚轮缩放';
+          events.emit('change', { kind: 'graph', value: { path: null } });
         });
       },
       resize() {
@@ -130,6 +233,10 @@ export class G6Renderer implements DiagramRenderer<GraphIR> {
         if (destroyed) return;
         destroyed = true;
         selector?.removeEventListener('change', onChange);
+        groupButtons.forEach(button => { button.onclick = null; });
+        graph.off('combo:click', onComboClick);
+        graph.off('node:click', onNodeClick);
+        events.clear();
         graph.destroy();
         root.remove();
       },
@@ -139,6 +246,15 @@ export class G6Renderer implements DiagramRenderer<GraphIR> {
       const operation = selected === '' ? instance.clearHighlight() : instance.highlightPath(diagram.samples[Number(selected)].path);
       void operation.catch(error => { if (!destroyed) status.textContent = `路径更新失败：${String(error)}`; });
     };
+    const toggleGroup = (id: string) => {
+      const operation = collapsed.has(id) ? instance.expand(id) : instance.collapse(id);
+      void operation.catch(error => { if (!destroyed) status.textContent = `分组更新失败：${String(error)}`; });
+    };
+    const onComboClick = (event: IPointerEvent) => { if ('id' in event.target) toggleGroup(event.target.id); };
+    const onNodeClick = (event: IPointerEvent) => { if ('id' in event.target) events.emit('nodeclick', { nodeId: event.target.id }); };
+    groupButtons.forEach((button, id) => { button.onclick = () => toggleGroup(id); });
+    graph.on('combo:click', onComboClick);
+    graph.on('node:click', onNodeClick);
     selector?.addEventListener('change', onChange);
     return instance;
   }

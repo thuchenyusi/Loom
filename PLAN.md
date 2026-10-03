@@ -1,14 +1,27 @@
 # Loom - Interactive Diagram Library 实施计划
 
-> 实施进度（2026-10-04）：Phase 1–3 已实现。当前代码和静态示例支持 Decision DSL → 校验 → GraphIR → G6，以及 sample selector / highlightPath / clearHighlight。验收命令与 API 见 README.md。Phase 4–7 待实施；本文后续章节保留完整 MVP 目标，不代表全部 API 已可用。
+> 实施进度（2026-10-04）：Phase 1–7 已完成。当前支持 Decision DSL / Function DSL → 校验 → IR → G6 / JSXGraph，以及路径高亮、可折叠嵌套分组、自动初始化和 Jekyll。实际 API 签名、返回值和使用方式以 README.md 为准，后续章节保留原始设计目标。
 
 | 阶段 | 实际交付 | 验收结果 |
 | --- | --- | --- |
-| Phase 1 | TypeScript、Vite library build、Vitest、ESM / IIFE bundle、类型声明和静态 HTML 示例 | 构建和类型检查通过；ESM / script 两种加载方式均通过真实浏览器验证 |
-| Phase 2 | Decision JSON Schema、语义校验、Parser、GraphIR、G6 antv-dagre 布局及平移缩放 | 14 节点决策图在静态 HTTP 页面完整渲染 |
-| Phase 3 | samples、选择器、highlightPath、clearHighlight、路径高亮及淡化 | Alice / Bob 动态切换正确，清除后画布恢复原样，无需刷新 |
+| Phase 1 | TypeScript、Vite library build、Vitest、ESM / IIFE bundle、类型声明和静态 HTML 示例 | 构建、类型检查、两种加载方式通过 |
+| Phase 2 | Decision Schema、语义校验、Parser、GraphIR、G6 antv-dagre 及平移缩放 | 14 节点静态决策图完整渲染 |
+| Phase 3 | samples、选择器、highlightPath、clearHighlight、高亮及淡化 | Alice / Bob 切换及清除恢复通过 |
+| Phase 4 | groups、嵌套 parent、G6 Combo、collapse / expand / focus、分组按钮及点击交互 | 折叠隐藏内部节点，外部边连接分组；展开恢复；隐藏子分组状态和 sample 高亮通过 |
+| Phase 5 | Function Schema、受限数学表达式解析、FunctionIR、JSXGraph 曲线 / 坐标轴 / glider / 坐标 / change | 鼠标拖动与键盘调整通过，坐标符合 y = x² / 10 |
+| Phase 6 | initDiagrams / Diagram.init、同页多图、去重、取消、destroy、自动 resize、逐图错误 | 并发及重复初始化、取消加载、销毁后重建、HTTP / DSL 错误隔离、窗口缩放通过 |
+| Phase 7 | Jekyll include、全局布局、Markdown 最小示例、baseurl 支持 | 本机 Jekyll 4.4.1 成功构建；/jekyll/ 静态页面的决策图与函数图正常运行 |
 
-验证记录：`npm test` 20 项通过；`npm run build` 通过；`npm run test:browser` 2 项通过（本机 Microsoft Edge，使用构建后的静态 ESM / IIFE 产物）。已人工检查完整图和高亮截图。安装后的依赖审计为 0 个漏洞。
+验证记录：
+
+- `npm test`：56 项单元测试通过（Parser、Validator、表达式、分组、适配器、事件和自动初始化）。
+- `npm run build:jekyll`：类型检查、ESM / IIFE 构建、示例资产复制和真实 Jekyll 构建通过。
+- `npm run test:browser`：6 项真实 Microsoft Edge 测试通过，使用构建后的静态产物；包含 Jekyll 生成页面。
+- 已检查完整图、折叠/展开、路径高亮、函数拖动和 Jekyll 页面截图；截图生成在 test-results/。
+- 已提供 01–05 五个静态示例和 integrations/jekyll/example。依赖安装审计为 0 个漏洞。
+- JSXGraph 自带 JessieCode 源码产生 eval 构建提示；Loom DSL 不调用它，表达式由受限解析器求值。当前 bundle 未验证严格 CSP，详见 README。
+
+Git：Phase 1–3 首次提交 `ac82b8c`；Phase 4–7 单独提交。构建产物、缓存和运行截图不进入 Git，可按命令重新生成。
 
 ## 1. 项目目标
 

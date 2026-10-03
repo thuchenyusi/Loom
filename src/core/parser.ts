@@ -16,15 +16,16 @@ export function parseDecisionDSL(input: unknown): GraphIR {
     }
   }
   // G6 uses one namespace for node and edge IDs. Avoid any collision with a DSL node ID.
-  const ids = new Set(Object.keys(spec.nodes));
+  const ids = new Set([...Object.keys(spec.nodes), ...Object.keys(spec.groups ?? {})]);
   for (const edge of edges) {
     while (ids.has(edge.id)) edge.id = `edge:${edge.id}`;
     ids.add(edge.id);
   }
   return {
     id: spec.id, kind: 'graph', start: spec.start,
-    nodes: Object.entries(spec.nodes).map(([id, node]) => ({ id, kind: node.type, label: node.label, ...(node.metadata ? { metadata: structuredClone(node.metadata) } : {}) })),
+    nodes: Object.entries(spec.nodes).map(([id, node]) => ({ id, kind: node.type, label: node.label, ...(node.group ? { group: node.group } : {}), ...(node.metadata ? { metadata: structuredClone(node.metadata) } : {}) })),
     edges,
+    groups: Object.entries(spec.groups ?? {}).map(([id, group]) => ({ id, label: group.label, collapsed: group.collapsed ?? false, ...(group.parent ? { parent: group.parent } : {}) })),
     samples: Object.entries(spec.samples ?? {}).map(([id, sample]) => ({ id, label: sample.label, path: [...sample.path] })),
   };
 }

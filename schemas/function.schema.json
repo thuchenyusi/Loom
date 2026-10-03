@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://loom.local/schemas/function.schema.json",
+  "title": "Loom Function Diagram",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "expression",
+    "domain"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "type": {
+      "const": "function"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expression": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "y": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "interactive": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "point": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x"
+          ],
+          "properties": {
+            "x": {
+              "type": "number"
+            }
+          }
+        },
+        "showCoordinate": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

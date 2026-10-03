@@ -1,14 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import example from '../examples/decision.json';
+import combo from '../examples/combo.json';
 import { parseDecisionDSL } from '../src/core/parser';
 import { G6Renderer } from '../src/renderers/g6/renderer';
 import { renderDiagram } from '../src/browser/render';
+import type { DecisionDSL } from '../src/dsl/decision';
+const graphSpec = example as DecisionDSL;
 
 const mock = vi.hoisted(() => ({
+  collapseElement: vi.fn(), expandElement: vi.fn(), updateComboData: vi.fn(), focusElement: vi.fn(),
   render: vi.fn(), destroy: vi.fn(), setElementState: vi.fn(), setSize: vi.fn(), fitView: vi.fn(), options: {} as Record<string, unknown>,
 }));
 vi.mock('@antv/g6', () => ({ Graph: class {
   constructor(options: Record<string, unknown>) { mock.options = options; }
+  on = vi.fn(); off = vi.fn();
+  collapseElement = mock.collapseElement; expandElement = mock.expandElement; updateComboData = mock.updateComboData; focusElement = mock.focusElement;
   render = mock.render;
   destroy = mock.destroy;
   setElementState = mock.setElementState;
@@ -26,6 +32,38 @@ beforeEach(() => {
 const container = () => document.querySelector<HTMLElement>('#graph')!;
 
 describe('G6 adapter lifecycle and sample paths', () => {
+  it('maps nested combos, collapses hidden children and expands ancestors on focus', async () => {
+    const ir = parseDecisionDSL(combo);
+    const instance = await new G6Renderer().mount(container(), ir);
+    const data = mock.options.data as { nodes: {id:string;combo?:string}[]; combos: {id:string;combo?:string}[] };
+    expect(data.nodes.find(node => node.id === 'mfa')?.combo).toBe('verification');
+    expect(data.combos.find(group => group.id === 'verification')?.combo).toBe('authentication');
+    expect(mock.collapseElement).toHaveBeenCalledWith('verification', false);
+    await instance.collapse('authentication');
+    await instance.expand('verification');
+    expect(mock.updateComboData).toHaveBeenCalledWith([{id:'verification',style:{collapsed:false}}]);
+    await instance.highlightPath(combo.samples.alice.path);
+    expect(mock.setElementState.mock.calls.at(-1)![0].verification).toEqual(['highlight']);
+    expect(mock.setElementState.mock.calls.at(-1)![0].authentication).toEqual(['highlight']);
+    await instance.focus('mfa');
+    expect(mock.expandElement).toHaveBeenCalledWith('authentication', false);
+    expect(mock.focusElement).toHaveBeenCalledWith('mfa', false);
+    await expect(instance.collapse('missing')).rejects.toThrow('Unknown group');
+    await expect(instance.focus('missing')).rejects.toThrow('Unknown node');
+    instance.destroy();
+  });
+  it('emits path change events and supports unsubscribe', async () => {
+    const instance = await new G6Renderer().mount(container(), parseDecisionDSL(example));
+    const listener = vi.fn();
+    const unsubscribe = instance.on('change', listener);
+    await instance.highlightPath(example.samples.alice.path);
+    expect(listener).toHaveBeenCalledWith({ kind:'graph', value:{path:example.samples.alice.path} });
+    unsubscribe();
+    await instance.clearHighlight();
+    expect(listener).toHaveBeenCalledOnce();
+    instance.destroy();
+    expect(() => instance.on('change', listener)).toThrow('destroyed');
+  });
   it('mounts IR, highlights only connected edges, switches samples and restores all states', async () => {
     const ir = parseDecisionDSL(example);
     const instance = await new G6Renderer().mount(container(), ir);
@@ -52,13 +90,13 @@ describe('G6 adapter lifecycle and sample paths', () => {
     await expect(instance.clearHighlight()).rejects.toThrow('destroyed');
   });
   it('rejects an invalid path before changing any state', async () => {
-    const instance = await renderDiagram(container(), example);
+    const instance = await renderDiagram(container(), graphSpec);
     await expect(instance.highlightPath(['network', 'allow-admin'])).rejects.toThrow('INVALID_SAMPLE_PATH');
     expect(mock.setElementState).not.toHaveBeenCalled();
     instance.destroy();
   });
   it('serializes rapid updates and copies the input path', async () => {
-    const instance = await renderDiagram(container(), example);
+    const instance = await renderDiagram(container(), graphSpec);
     const path = [...example.samples.alice.path];
     const first = instance.highlightPath(path);
     path.splice(0);
@@ -69,13 +107,13 @@ describe('G6 adapter lifecycle and sample paths', () => {
     instance.destroy();
   });
   it('does not show a selector when disabled', async () => {
-    const instance = await renderDiagram(container(), example, { showSampleSelector: false });
+    const instance = await renderDiagram(container(), graphSpec, { showSampleSelector: false });
     expect(container().querySelector('select')).toBeNull();
     instance.destroy();
   });
   it('cleans up after render failure', async () => {
     mock.render.mockRejectedValueOnce(new Error('Canvas unavailable'));
-    await expect(renderDiagram(container(), example)).rejects.toThrow('Canvas unavailable');
+    await expect(renderDiagram(container(), graphSpec)).rejects.toThrow('Canvas unavailable');
     expect(mock.destroy).toHaveBeenCalledOnce();
     expect(container().querySelector('.loom-diagram')).toBeNull();
   });
@@ -92,7 +130,7 @@ describe('G6 adapter lifecycle and sample paths', () => {
   it('rejects invalid container, DSL and height without leaving UI', async () => {
     await expect(renderDiagram(null as unknown as HTMLElement, example)).rejects.toThrow('container');
     await expect(renderDiagram(container(), {})).rejects.toThrow('SCHEMA_VALIDATION_ERROR');
-    await expect(renderDiagram(container(), example, { height: -1 })).rejects.toThrow('height');
+    await expect(renderDiagram(container(), graphSpec, { height: -1 })).rejects.toThrow('height');
     expect(container().querySelector('.loom-diagram')).toBeNull();
   });
 });

@@ -1,0 +1,12 @@
+<!doctype html><html lang="zh-CN">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loom · 用户手册</title>
+<style>body{font:16px system-ui;background:#f3f6fb;color:#182b49;margin:24px}main{max-width:1200px;margin:auto}h2{margin-top:32px}a{color:#2563eb}</style>
+<main><h1>Loom · 用户手册</h1><p>访问决策、可折叠认证模块和风险函数，均从 JSON 自动加载。</p>
+<h2>访问决策</h2><p>切换 sample 查看决策路径，点击分组或按钮切换折叠。</p>
+<div data-diagram data-src="./combo.json" data-height="640"></div>
+<h2>风险函数</h2><p>拖动点 P，观察数学坐标。每个图独立运行。</p>
+<div data-diagram data-src="./function.json" data-height="420"></div>
+<p><a href="01-basic-decision.html">基本图</a> · <a href="02-sample-highlight.html">路径高亮</a> · <a href="03-collapsible-groups.html">分组</a> · <a href="04-interactive-function.html">函数</a> · <a href="/jekyll/">Jekyll 示例</a></p></main>
+<script src="../dist/diagram.min.js"></script>
+<script>Diagram.init().then(results => { window.diagrams=results.filter(result=>result.instance).map(result=>result.instance); window.initResults=results; });</script></html>

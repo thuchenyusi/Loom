@@ -1,0 +1,2 @@
+{% assign diagram_src = include.src | relative_url %}
+<div class="interactive-diagram" data-diagram data-src="{{ diagram_src | escape }}"{% if include.id %} id="{{ include.id | escape }}"{% endif %}{% if include.height %} data-height="{{ include.height | escape }}"{% endif %}></div>
