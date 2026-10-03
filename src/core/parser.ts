@@ -1,0 +1,30 @@
+import type { DecisionDSL } from '../dsl/decision';
+import type { GraphEdgeIR, GraphIR } from './types';
+import { DiagramValidationError, validateDecisionDSL } from './validator';
+
+export function parseDecisionDSL(input: unknown): GraphIR {
+  const result = validateDecisionDSL(input);
+  if (!result.valid) throw new DiagramValidationError(result.errors);
+  const spec = input as DecisionDSL;
+  const edges: GraphEdgeIR[] = [];
+  for (const [id, node] of Object.entries(spec.nodes)) {
+    if (node.type === 'decision') {
+      for (const branch of ['yes', 'no'] as const) {
+        // JSON tuples keep edge IDs distinct even for unusual user-supplied IDs.
+        edges.push({ id: `edge:${JSON.stringify([id, branch])}`, source: id, target: node[branch], branch, label: branch === 'yes' ? '是 / Yes' : '否 / No' });
+      }
+    }
+  }
+  // G6 uses one namespace for node and edge IDs. Avoid any collision with a DSL node ID.
+  const ids = new Set(Object.keys(spec.nodes));
+  for (const edge of edges) {
+    while (ids.has(edge.id)) edge.id = `edge:${edge.id}`;
+    ids.add(edge.id);
+  }
+  return {
+    id: spec.id, kind: 'graph', start: spec.start,
+    nodes: Object.entries(spec.nodes).map(([id, node]) => ({ id, kind: node.type, label: node.label, ...(node.metadata ? { metadata: structuredClone(node.metadata) } : {}) })),
+    edges,
+    samples: Object.entries(spec.samples ?? {}).map(([id, sample]) => ({ id, label: sample.label, path: [...sample.path] })),
+  };
+}

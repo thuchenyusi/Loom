@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loom · 决策图</title>
+<style>body{margin:0;background:#f3f6fb;color:#182b49;font:16px system-ui,sans-serif}main{max-width:1200px;margin:32px auto;padding:0 24px}h1{margin-bottom:8px}p{color:#526681}a{color:#2563eb}</style>
+<main>
+  <h1>Loom · 交互决策图</h1>
+  <p>14 个节点，一份 JSON。选择 Alice、Bob 或 Guest 查看决策路径；选择“完整决策图”恢复全部分支。</p>
+  <div id="diagram"></div>
+  <p id="error" role="alert"></p>
+  <p><a href="/examples/01-basic-decision.html">ESM 示例</a> · <a href="/examples/02-sample-highlight.html">浏览器 bundle 示例（需先 build）</a></p>
+</main>
+<script type="module">
+  import { renderDiagram } from '/src/index.ts';
+  try { window.demo = await renderDiagram(document.querySelector('#diagram'), '/examples/decision.json', { height: 640 }); }
+  catch (error) { document.querySelector('#error').textContent = error.message; }
+</script>
+</html>

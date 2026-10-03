@@ -1,0 +1,27 @@
+{
+  "$schema": "../schemas/decision.schema.json",
+  "type": "decision",
+  "id": "access-control",
+  "start": "network",
+  "nodes": {
+    "network": { "type": "decision", "label": "来自内部网络？", "yes": "account", "no": "vpn" },
+    "vpn": { "type": "decision", "label": "已连接可信 VPN？", "yes": "account", "no": "deny-network" },
+    "account": { "type": "decision", "label": "账户有效？", "yes": "role", "no": "deny-account" },
+    "role": { "type": "decision", "label": "是管理员？", "yes": "mfa", "no": "permission" },
+    "mfa": { "type": "decision", "label": "已通过 MFA？", "yes": "allow-admin", "no": "require-mfa" },
+    "permission": { "type": "decision", "label": "拥有资源权限？", "yes": "device", "no": "deny-permission" },
+    "device": { "type": "decision", "label": "设备可信？", "yes": "allow-user", "no": "require-device" },
+    "deny-network": { "type": "result", "label": "拒绝：网络不可信" },
+    "deny-account": { "type": "result", "label": "拒绝：账户无效" },
+    "deny-permission": { "type": "result", "label": "拒绝：无资源权限" },
+    "allow-admin": { "type": "result", "label": "允许：管理员访问" },
+    "allow-user": { "type": "result", "label": "允许：成员访问" },
+    "require-mfa": { "type": "result", "label": "需要完成 MFA" },
+    "require-device": { "type": "result", "label": "需要验证设备" }
+  },
+  "samples": {
+    "alice": { "label": "Alice · 内部管理员", "path": ["network", "account", "role", "mfa", "allow-admin"] },
+    "bob": { "label": "Bob · VPN 成员", "path": ["network", "vpn", "account", "role", "permission", "device", "allow-user"] },
+    "guest": { "label": "Guest · 外部访客", "path": ["network", "vpn", "deny-network"] }
+  }
+}

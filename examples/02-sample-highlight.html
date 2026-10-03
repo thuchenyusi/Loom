@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loom · Sample Paths</title>
+<style>body{font:16px system-ui;background:#f3f6fb;color:#182b49;margin:24px}main{max-width:1200px;margin:auto}</style>
+<main><h1>Sample Paths · Browser Bundle</h1><p>切换 Alice、Bob、Guest：经过的节点和边高亮，其余分支淡化。</p><div id="diagram"></div><p id="error" role="alert"></p></main>
+<script src="../dist/diagram.min.js"></script>
+<script>
+  Diagram.renderDiagram(document.querySelector('#diagram'), './decision.json', { height: 640 })
+    .then(instance => { window.demo = instance; })
+    .catch(error => { document.querySelector('#error').textContent = error.message; });
+</script>
+</html>

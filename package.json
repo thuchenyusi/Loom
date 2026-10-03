@@ -1,0 +1,42 @@
+{
+  "name": "@loom-diagrams/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Declarative interactive decision diagrams for static pages",
+  "main": "./dist/diagram.min.js",
+  "module": "./dist/diagram.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/diagram.js"
+    },
+    "./schemas/decision.schema.json": "./schemas/decision.schema.json"
+  },
+  "files": [
+    "dist",
+    "schemas"
+  ],
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "demo": "node scripts/serve.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build && tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@antv/g6": "^5.1.0",
+    "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.20.5",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.0",
+    "vitest": "^4.1.11"
+  }
+}
