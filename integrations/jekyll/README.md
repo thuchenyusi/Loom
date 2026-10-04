@@ -1,31 +1,52 @@
-# Jekyll 集成
+# 在 Jekyll 中使用 Loom
 
-把 `diagram.html` 复制到博客的 `_includes/diagram.html`，把构建后的 `dist/diagram.min.js` 放到 `assets/diagram/`，将 JSON 放到 `assets/diagrams/`。
+将 Loom 接入博客后，可直接在 Markdown 中插入交互式图。图的内容由 JSON 定义，生成的网站仍是静态页面。
 
-Markdown 中写一行：
+## 安装资源
 
-```liquid
-{% include diagram.html src="/assets/diagrams/combo.json" %}
-```
+按 [Loom 的构建步骤](../../README.md#获取脚本)获取浏览器脚本，将以下文件放入博客：
 
-可选参数 `height="640"` 和 `id="access-flow"`。路径使用 Jekyll 的 `relative_url`，支持部署在子目录，属性经过 HTML 转义。
+| 来源 | 博客中的位置 |
+| --- | --- |
+| [diagram.html](diagram.html) | `_includes/diagram.html` |
+| `dist/diagram.min.js` | `assets/loom/diagram.min.js` |
+| 你的图配置 JSON | `assets/diagrams/` |
 
-在布局的 body 末尾统一加载：
+在公共布局的 `</body>` 前加入一次：
 
 ```html
-<script src="{{ '/assets/diagram/diagram.min.js' | relative_url }}"></script>
+<script src="{{ '/assets/loom/diagram.min.js' | relative_url }}"></script>
 <script>Diagram.init();</script>
 ```
 
-## 最小示例
+## 在文章中插入图
 
-从 Loom 仓库根目录运行：
-
-```sh
-npm run build:jekyll
-npm run demo
+```liquid
+{% include diagram.html src="/assets/diagrams/decision.json" %}
 ```
 
-访问 `http://127.0.0.1:4173/jekyll/`。需要已有 Ruby 和 Jekyll 4.4（也可在 example 目录 `bundle install`）。prepare 脚本将正式 include、bundle 和 JSON 复制进示例，避免维护两套代码。
+可选参数：
 
-示例配置 `baseurl: /jekyll`，生成结果可以放到静态网站的 `/jekyll/` 目录。实际博客使用自己的 baseurl。
+| 参数 | 用途 |
+| --- | --- |
+| `src` | 必填，图配置 JSON 的站点路径 |
+| `height` | 画布高度，单位为像素 |
+| `id` | 容器 ID，方便用 JavaScript 获取该容器 |
+
+例如：
+
+```liquid
+{% include diagram.html src="/assets/diagrams/decision.json" height="480" id="access-flow" %}
+```
+
+同一文章可插入多个图。决策图和函数图使用相同的 include，由 JSON 中的 `type` 决定。
+
+include 和脚本路径使用 `relative_url` 适配博客的 `baseurl`，无需在每篇文章里重复添加部署子目录。属性值会经过 HTML 转义。
+
+## 编写图配置
+
+- [最小决策图与函数图](../../README.md#快速接入)
+- [完整配置与 API](../../docs/api.md)
+- [嵌套分组配置示例](../../examples/combo.json)
+
+如需预览仓库内的 Jekyll 示例，见[开发指南](../../docs/development.md#jekyll-示例)。

@@ -1,6 +1,6 @@
 # Loom - Interactive Diagram Library 实施计划
 
-> 实施进度（2026-10-04）：Phase 1–7 已完成。当前支持 Decision DSL / Function DSL → 校验 → IR → G6 / JSXGraph，以及路径高亮、可折叠嵌套分组、自动初始化和 Jekyll。实际 API 签名、返回值和使用方式以 README.md 为准，后续章节保留原始设计目标。
+> 实施进度（2026-10-04）：Phase 1–7 已完成。当前支持 Decision DSL / Function DSL → 校验 → IR → G6 / JSXGraph，以及路径高亮、可折叠嵌套分组、自动初始化和 Jekyll。实际 API 签名、返回值和使用方式以 README.md 及 docs/api.md 为准，后续章节保留原始设计目标。
 
 | 阶段 | 实际交付 | 验收结果 |
 | --- | --- | --- |
