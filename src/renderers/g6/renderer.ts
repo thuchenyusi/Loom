@@ -56,18 +56,20 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
     }
     const syncGroupButtons = () => diagram.groups.forEach(group => {
       const button = groupButtons.get(group.id)!;
-      button.textContent = `${collapsed.has(group.id) ? '展开' : '折叠'}：${group.label}`;
+      button.textContent = `${collapsed.has(group.id) ? '▸ 展开' : '▾ 收起'}：${group.label}`;
       button.setAttribute('aria-expanded', String(!collapsed.has(group.id)));
     });
     syncGroupButtons();
     root.append(canvas, status);
     container.append(root);
     // G6's combo collapse path reuses cached callback styles, so keep presentation in data.
-    const groupPresentation = (isCollapsed: boolean) => ({
+    const groupPresentation = (id: string, isCollapsed: boolean) => ({
+      labelText: `${diagram.groups.find(group => group.id === id)!.label}${isCollapsed ? '\n▸ 展开' : '  ▾ 收起'}`,
+      labelBackground: !isCollapsed,
       padding: isCollapsed ? 0 : [24, 12, 12, 12],
       labelPlacement: isCollapsed ? 'center' as const : 'top' as const,
       labelMaxWidth: isCollapsed ? 164 : '90%',
-      labelMaxLines: isCollapsed ? 2 : 1,
+      labelMaxLines: isCollapsed ? 3 : 1,
     });
     let canvasWidth = Math.max(container.clientWidth || 800, 1);
     let graph: Graph;
@@ -78,7 +80,7 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
         animation: false, autoFit: 'view', padding: 36,
         data: {
           nodes: diagram.nodes.map(node => ({ id: node.id, combo: node.group, data: { kind: node.kind, label: node.label } })),
-          combos: diagram.groups.map(group => ({ id: group.id, combo: group.parent, data: { label: group.label }, style: groupPresentation(false) })),
+          combos: diagram.groups.map(group => ({ id: group.id, combo: group.parent, data: { label: group.label }, style: groupPresentation(group.id, false) })),
           edges: diagram.edges.map(edge => ({ id: edge.id, source: edge.source, target: edge.target, data: { label: edge.label } })),
         },
         layout: { type: 'antv-dagre', rankdir: 'TB', nodeSize: [184, 56], nodesep: 30, ranksep: 36, sortByCombo: true },
@@ -110,10 +112,11 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
         combo: {
           type: 'rect',
           style: { radius: 10, fill: '#f6f8fc', stroke: '#94a3b8', lineWidth: 1, opacity: 1,
-            labelText: datum => String(datum.data?.label ?? datum.id), labelFill: '#182b49', labelFontSize: 16, labelFontWeight: 600,
-            labelWordWrap: true, labelLineHeight: 20,
+            cursor: 'pointer', labelCursor: 'pointer', labelFill: '#182b49', labelFontSize: 13, labelFontWeight: 400,
+            labelWordWrap: true, labelLineHeight: 16, labelPadding: [2, 4],
+            labelBackgroundFill: '#fff', labelBackgroundStroke: '#cbd5e1', labelBackgroundLineWidth: 1, labelBackgroundRadius: 4,
             collapsedSize: [184, 56], collapsedFill: '#f1f5f9', collapsedMarker: false },
-          state: { highlight: { stroke: '#2563eb', lineWidth: 3 }, dim: { opacity: 0.22 } },
+          state: { highlight: { stroke: '#2563eb', lineWidth: 3 }, dim: { opacity: 0.22 }, active: { lineWidth: 2 } },
         },
         behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element', { type: 'hover-activate', animation: false }],
 
@@ -142,7 +145,7 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
       await graph.render();
       for (const group of [...diagram.groups].sort((a, b) => groupDepth(b.id) - groupDepth(a.id))) {
         if (group.collapsed) {
-          graph.updateComboData([{ id: group.id, style: groupPresentation(true) }]);
+          graph.updateComboData([{ id: group.id, style: groupPresentation(group.id, true) }]);
           await graph.collapseElement(group.id, false);
         }
       }
@@ -191,9 +194,9 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
         parent = diagram.groups.find(group => group.id === parent)?.parent;
       }
       if (hidden) {
-        graph.updateComboData([{ id, style: { collapsed: value, ...groupPresentation(value) } }]);
+        graph.updateComboData([{ id, style: { collapsed: value, ...groupPresentation(id, value) } }]);
       } else {
-        graph.updateComboData([{ id, style: groupPresentation(value) }]);
+        graph.updateComboData([{ id, style: groupPresentation(id, value) }]);
         if (value) await graph.collapseElement(id, false);
         else await graph.expandElement(id, false);
       }
@@ -217,7 +220,7 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
         let groupId = node.group;
         while (groupId) { ancestors.unshift(groupId); groupId = diagram.groups.find(group => group.id === groupId)?.parent; }
         for (const ancestor of ancestors) if (collapsed.has(ancestor)) {
-          graph.updateComboData([{ id: ancestor, style: groupPresentation(false) }]);
+          graph.updateComboData([{ id: ancestor, style: groupPresentation(ancestor, false) }]);
           await graph.expandElement(ancestor, false);
           collapsed.delete(ancestor);
         }

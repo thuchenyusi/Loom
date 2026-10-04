@@ -8,6 +8,7 @@ declare global {
     initResults: InitDiagramResult[];
     lastChange: { value: { x: number; y: number } };
     groupPaint: Record<string, { x: number; y: number; size: number }>;
+    groupActions: Record<string, { x: number; y: number; font: string }>;
   }
 }
 
@@ -176,5 +177,44 @@ test('collapsed groups keep node proportions, centered titles and stable label s
     await expect(auth).toHaveAttribute('aria-expanded', 'true');
     await page.locator('.loom-canvas').screenshot();
     expect(await page.evaluate(() => window.groupPaint.entry.size)).toBeCloseTo(initial.entry.size, 2);
+  }
+});
+
+test('disclosure arrows and action labels work as canvas controls in HTML and Jekyll', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.groupActions = {};
+    const original = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function(text, x, y, maxWidth) {
+      const action = text.includes('▸ 展开') ? 'expand' : text.includes('▾ 收起') ? 'collapse' : undefined;
+      if (action) {
+        const point = this.getTransform().transformPoint({ x, y });
+        window.groupActions[action] = { x: point.x / devicePixelRatio, y: point.y / devicePixelRatio, font: this.font };
+      }
+      if (maxWidth === undefined) original.call(this, text, x, y);
+      else original.call(this, text, x, y, maxWidth);
+    };
+  });
+  for (const url of ['/examples/03-collapsible-groups.html', '/jekyll/']) {
+    await page.goto(url);
+    await expect.poll(() => page.evaluate(() => Boolean(window.demo) || document.querySelectorAll('[data-diagram-state="ready"]').length === 2)).toBe(true);
+    await page.locator('.loom-canvas').screenshot();
+    const actions = await page.evaluate(() => window.groupActions);
+    expect(actions.expand).toBeDefined();
+    expect(actions.collapse).toBeDefined();
+    expect(actions.expand.font).not.toMatch(/bold|[6-9]00/);
+    const canvas = page.locator('.loom-canvas canvas:not([style*="pointer-events: none"])');
+    const bounds = (await canvas.boundingBox())!;
+    await page.mouse.move(bounds.x + actions.expand.x, bounds.y + actions.expand.y);
+    await expect(canvas).toHaveCSS('cursor', 'pointer');
+    await page.evaluate(() => { window.groupActions = {}; });
+    await page.mouse.click(bounds.x + actions.expand.x, bounds.y + actions.expand.y);
+    await expect(page.locator('button[data-group="verification"]')).toHaveAttribute('aria-expanded', 'true');
+    await page.locator('.loom-canvas').screenshot();
+    const opened = await page.evaluate(() => window.groupActions);
+    expect(opened.expand).toBeUndefined();
+    expect(opened.collapse).toBeDefined();
+    // Both groups are now expanded; the nested title remains a direct collapse control.
+    await page.mouse.click(bounds.x + opened.collapse.x, bounds.y + opened.collapse.y);
+    await expect(page.locator('button[data-group="verification"]')).toHaveAttribute('aria-expanded', 'false');
   }
 });
