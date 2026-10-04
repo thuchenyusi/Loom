@@ -104,7 +104,7 @@ Graph 实例 API：
 | --- | --- |
 | highlightPath(path) | 高亮非空、边连续的路径，也允许局部路径 |
 | clearHighlight() | 恢复全部节点、边与分组 |
-| collapse(groupId) / expand(groupId) | 折叠或展开分组，外部边连接到折叠模块；保留嵌套分组各自的状态 |
+| collapse(groupId) / expand(groupId) | 折叠或展开分组，外部边连接到折叠模块；保留嵌套分组各自的状态。切换保持当前缩放，内容超出画布时缩小以完整显示 |
 | focus(nodeId) | 展开必要的祖先分组并聚焦节点 |
 | on('change', listener) | 路径变化事件 `{kind:'graph', value:{path}}`；清除时 path 为 null |
 | on('nodeclick', listener) | 点击节点事件 `{nodeId}` |

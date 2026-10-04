@@ -14,10 +14,11 @@
 
 验证记录：
 
-- `npm test`：56 项单元测试通过（Parser、Validator、表达式、分组、适配器、事件和自动初始化）。
+- `npm test`：57 项单元测试通过（Parser、Validator、表达式、分组、适配器、事件和自动初始化）。
 - `npm run build:jekyll`：类型检查、ESM / IIFE 构建、示例资产复制和真实 Jekyll 构建通过。
-- `npm run test:browser`：6 项真实 Microsoft Edge 测试通过，使用构建后的静态产物；包含 Jekyll 生成页面。
+- `npm run test:browser`：7 项真实 Microsoft Edge 测试通过，使用构建后的静态产物；包含 Jekyll 生成页面。
 - 已检查完整图、折叠/展开、路径高亮、函数拖动和 Jekyll 页面截图；截图生成在 test-results/。
+- 分组显示修复：折叠外框统一为 184×56，移除折叠内边距叠加；标题 16px 加粗、居中并支持两行；展开标题使用分组可用宽度。切换不自动放大，浏览器回归测试覆盖静态示例及 Jekyll 的比例、标题位置和字号稳定性。
 - 已提供 01–05 五个静态示例和 integrations/jekyll/example。依赖安装审计为 0 个漏洞。
 - JSXGraph 自带 JessieCode 源码产生 eval 构建提示；Loom DSL 不调用它，表达式由受限解析器求值。当前 bundle 未验证严格 CSP，详见 README。
 

@@ -8,6 +8,7 @@ import type { DecisionDSL } from '../src/dsl/decision';
 const graphSpec = example as DecisionDSL;
 
 const mock = vi.hoisted(() => ({
+  getZoom: vi.fn(), zoomTo: vi.fn(), fitCenter: vi.fn(),
   collapseElement: vi.fn(), expandElement: vi.fn(), updateComboData: vi.fn(), focusElement: vi.fn(),
   render: vi.fn(), destroy: vi.fn(), setElementState: vi.fn(), setSize: vi.fn(), fitView: vi.fn(), options: {} as Record<string, unknown>,
 }));
@@ -20,10 +21,12 @@ vi.mock('@antv/g6', () => ({ Graph: class {
   setElementState = mock.setElementState;
   setSize = mock.setSize;
   fitView = mock.fitView;
+  getZoom = mock.getZoom; zoomTo = mock.zoomTo; fitCenter = mock.fitCenter;
 } }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mock.getZoom.mockReturnValue(1);
   mock.render.mockResolvedValue(undefined);
   mock.setElementState.mockResolvedValue(undefined);
   mock.fitView.mockResolvedValue(undefined);
@@ -41,7 +44,7 @@ describe('G6 adapter lifecycle and sample paths', () => {
     expect(mock.collapseElement).toHaveBeenCalledWith('verification', false);
     await instance.collapse('authentication');
     await instance.expand('verification');
-    expect(mock.updateComboData).toHaveBeenCalledWith([{id:'verification',style:{collapsed:false}}]);
+    expect(mock.updateComboData).toHaveBeenCalledWith([{ id: 'verification', style: expect.objectContaining({ collapsed: false, labelPlacement: 'top' }) }]);
     await instance.highlightPath(combo.samples.alice.path);
     expect(mock.setElementState.mock.calls.at(-1)![0].verification).toEqual(['highlight']);
     expect(mock.setElementState.mock.calls.at(-1)![0].authentication).toEqual(['highlight']);
@@ -50,6 +53,18 @@ describe('G6 adapter lifecycle and sample paths', () => {
     expect(mock.focusElement).toHaveBeenCalledWith('mfa', false);
     await expect(instance.collapse('missing')).rejects.toThrow('Unknown group');
     await expect(instance.focus('missing')).rejects.toThrow('Unknown node');
+    instance.destroy();
+  });
+  it('keeps the current zoom when folding and only shrinks to fit expanded content', async () => {
+    const instance = await new G6Renderer().mount(container(), parseDecisionDSL(combo));
+    mock.getZoom.mockReturnValueOnce(0.8).mockReturnValueOnce(1.1);
+    await instance.collapse('authentication');
+    expect(mock.zoomTo).toHaveBeenCalledWith(0.8, false);
+    expect(mock.fitCenter).toHaveBeenCalledWith(false);
+    mock.zoomTo.mockClear();
+    mock.getZoom.mockReturnValueOnce(0.8).mockReturnValueOnce(0.7);
+    await instance.expand('authentication');
+    expect(mock.zoomTo).not.toHaveBeenCalled();
     instance.destroy();
   });
   it('emits path change events and supports unsubscribe', async () => {
@@ -83,7 +98,10 @@ describe('G6 adapter lifecycle and sample paths', () => {
     expect(Object.values(mock.setElementState.mock.calls.at(-1)![0]).every(value => Array.isArray(value) && value.length === 0)).toBe(true);
     expect(select.value).toBe('');
     await instance.resize();
-    expect(mock.setSize).toHaveBeenCalledWith(800, 560);
+    expect(mock.setSize).not.toHaveBeenCalled();
+    Object.defineProperty(container(), 'clientWidth', { value: 900 });
+    await instance.resize();
+    expect(mock.setSize).toHaveBeenCalledWith(900, 560);
     instance.destroy(); instance.destroy();
     expect(mock.destroy).toHaveBeenCalledOnce();
     expect(container().textContent).toBe('Existing content');

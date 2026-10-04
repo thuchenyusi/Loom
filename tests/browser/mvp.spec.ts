@@ -7,6 +7,7 @@ declare global {
     Diagram: typeof import('../../src/index');
     initResults: InitDiagramResult[];
     lastChange: { value: { x: number; y: number } };
+    groupPaint: Record<string, { x: number; y: number; size: number }>;
   }
 }
 
@@ -109,4 +110,71 @@ test('Jekyll Markdown includes produce an interactive static page under a baseur
   await expect(page.locator('.loom-coordinate')).toContainText('P(2.000, 0.400)');
   await page.screenshot({ path: 'test-results/jekyll.png', fullPage: true });
   expect(errors).toEqual([]);
+});
+
+test('collapsed groups keep node proportions, centered titles and stable label scale', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.groupPaint = {};
+    const original = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function(text, x, y, maxWidth) {
+      const key = text.startsWith('Authentication') ? 'auth'
+        : text.startsWith('Verification') ? 'verify'
+        : text.startsWith('访问受保护资源') ? 'entry' : undefined;
+      if (key) {
+        const transform = this.getTransform();
+        const position = transform.transformPoint({ x, y });
+        const font = Number(this.font.match(/([\d.]+)px/)?.[1]);
+        window.groupPaint[key] = { x: position.x, y: position.y,
+          size: font * Math.hypot(transform.a, transform.b) / devicePixelRatio };
+      }
+      if (maxWidth === undefined) original.call(this, text, x, y);
+      else original.call(this, text, x, y, maxWidth);
+    };
+  });
+  const collapsedBox = () => page.locator('.loom-canvas canvas:not([style*="pointer-events: none"])').evaluate(element => {
+    const canvas = element as HTMLCanvasElement;
+    const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
+    let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
+    const matchesFill = (x: number, y: number) => {
+      const index = (y * canvas.width + x) * 4;
+      return data[index] === 241 && data[index + 1] === 245 && data[index + 2] === 249 && data[index + 3] === 255;
+    };
+    // Ignore antialiased strokes that happen to share the collapsed fill color.
+    for (let y = 2; y < canvas.height - 2; y++) for (let x = 2; x < canvas.width - 2; x++) {
+      if (matchesFill(x, y) && matchesFill(x - 2, y) && matchesFill(x + 2, y)
+        && matchesFill(x, y - 2) && matchesFill(x, y + 2)) {
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      }
+    }
+    // Add back the two-pixel sampling radius and one-pixel stroke on each side.
+    return { minX, minY, maxX, maxY, ratio: maxX >= minX && maxY >= minY ? (maxX - minX + 7) / (maxY - minY + 7) : 0 };
+  });
+  for (const url of ['/examples/03-collapsible-groups.html', '/jekyll/']) {
+    await page.goto(url);
+    const auth = page.locator('button[data-group="authentication"]');
+    await expect(auth).toHaveAttribute('aria-expanded', 'true');
+    await expect.poll(() => page.evaluate(() => Boolean(window.demo) || document.querySelectorAll('[data-diagram-state="ready"]').length === 2)).toBe(true);
+    await page.locator('.loom-canvas').screenshot();
+    let box = await collapsedBox();
+    expect(box.ratio).toBeGreaterThan(3.1);
+    expect(box.ratio).toBeLessThan(3.5);
+    const initial = await page.evaluate(() => window.groupPaint);
+    expect(initial.verify.y).toBeGreaterThan(box.minY);
+    expect(initial.verify.y).toBeLessThan(box.maxY);
+    await auth.click();
+    await expect(auth).toHaveAttribute('aria-expanded', 'false');
+    await page.locator('.loom-canvas').screenshot();
+    box = await collapsedBox();
+    expect(box.ratio).toBeGreaterThan(3.1);
+    expect(box.ratio).toBeLessThan(3.5);
+    const folded = await page.evaluate(() => window.groupPaint);
+    expect(folded.auth.y).toBeGreaterThan(box.minY);
+    expect(folded.auth.y).toBeLessThan(box.maxY);
+    expect(folded.entry.size).toBeCloseTo(initial.entry.size, 2);
+    await auth.click();
+    await expect(auth).toHaveAttribute('aria-expanded', 'true');
+    await page.locator('.loom-canvas').screenshot();
+    expect(await page.evaluate(() => window.groupPaint.entry.size)).toBeCloseTo(initial.entry.size, 2);
+  }
 });
