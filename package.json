@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Declarative interactive decision diagrams for static pages",
+  "license": "AGPL-3.0-only",
   "main": "./dist/diagram.min.js",
   "module": "./dist/diagram.js",
   "types": "./dist/index.d.ts",

@@ -140,3 +140,7 @@ if (graph.kind === 'graph') {
 - [API 与配置参考](docs/api.md)
 - [Jekyll 接入说明](integrations/jekyll/README.md)
 - [开发指南](docs/development.md)
+
+## 许可证
+
+Loom 采用 GNU Affero General Public License v3.0（AGPL-3.0-only）许可。完整条款见 [LICENSE](LICENSE)。
