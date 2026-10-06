@@ -31,12 +31,19 @@
 | --- | --- |
 | `src` | 必填，图配置 JSON 的站点路径 |
 | `height` | 画布高度，单位为像素 |
+| `view` | `questionnaire` 将决策图显示为可作答问卷，默认显示图 |
 | `id` | 容器 ID，方便用 JavaScript 获取该容器 |
 
 例如：
 
 ```liquid
 {% include diagram.html src="/assets/diagrams/decision.json" height="480" id="access-flow" %}
+```
+
+需要逐题作答时：
+
+```liquid
+{% include diagram.html src="/assets/diagrams/decision.json" view="questionnaire" %}
 ```
 
 同一文章可插入多个图。决策图和函数图使用相同的 include，由 JSON 中的 `type` 决定。

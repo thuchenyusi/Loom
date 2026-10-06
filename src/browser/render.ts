@@ -2,12 +2,15 @@ import type { DecisionDSL } from '../dsl/decision';
 import type { FunctionDSL } from '../dsl/function';
 import { parseDecisionDSL } from '../core/parser';
 import { parseFunctionDSL } from '../core/function';
-import type { FunctionDiagramInstance, GraphDiagramInstance, RenderedDiagramInstance, RenderOptions } from '../core/types';
+import type { FunctionDiagramInstance, GraphDiagramInstance, QuestionnaireDiagramInstance, RenderedDiagramInstance, RenderOptions } from '../core/types';
 import { G6Renderer } from '../renderers/g6/renderer';
 import { JSXGraphRenderer } from '../renderers/jsxgraph/renderer';
+import { QuestionnaireRenderer } from '../renderers/questionnaire/renderer';
 
-export function renderDiagram(container: HTMLElement, spec: DecisionDSL, options?: RenderOptions): Promise<GraphDiagramInstance>;
-export function renderDiagram(container: HTMLElement, spec: FunctionDSL, options?: RenderOptions): Promise<FunctionDiagramInstance>;
+export function renderDiagram(container: HTMLElement, spec: DecisionDSL, options: RenderOptions & { view: 'questionnaire' }): Promise<QuestionnaireDiagramInstance>;
+export function renderDiagram(container: HTMLElement, spec: DecisionDSL, options?: RenderOptions & { view?: 'diagram' }): Promise<GraphDiagramInstance>;
+export function renderDiagram(container: HTMLElement, spec: DecisionDSL, options: RenderOptions): Promise<GraphDiagramInstance | QuestionnaireDiagramInstance>;
+export function renderDiagram(container: HTMLElement, spec: FunctionDSL, options?: RenderOptions & { view?: 'diagram' }): Promise<FunctionDiagramInstance>;
 export function renderDiagram(container: HTMLElement, spec: unknown, options?: RenderOptions): Promise<RenderedDiagramInstance>;
 /** Render a decision/function specification, or fetch it from a JSON URL. */
 export async function renderDiagram(container: HTMLElement, spec: unknown, options: RenderOptions = {}): Promise<RenderedDiagramInstance> {
@@ -20,9 +23,14 @@ export async function renderDiagram(container: HTMLElement, spec: unknown, optio
     input = await response.json();
   }
   options.signal?.throwIfAborted();
-  const instance = input && typeof input === 'object' && 'type' in input && input.type === 'function'
+  if (options.view !== undefined && options.view !== 'diagram' && options.view !== 'questionnaire') throw new TypeError('Unknown diagram view');
+  const isFunction = input && typeof input === 'object' && 'type' in input && input.type === 'function';
+  if (isFunction && options.view === 'questionnaire') throw new TypeError('Questionnaire view requires a decision diagram');
+  const instance = isFunction
     ? await new JSXGraphRenderer().mount(container, parseFunctionDSL(input), options)
-    : await new G6Renderer().mount(container, parseDecisionDSL(input), options);
+    : options.view === 'questionnaire'
+      ? await new QuestionnaireRenderer().mount(container, parseDecisionDSL(input), options)
+      : await new G6Renderer().mount(container, parseDecisionDSL(input), options);
   if (options.signal?.aborted) { instance.destroy(); options.signal.throwIfAborted(); }
   let destroyed = false;
   let frame: number | undefined;

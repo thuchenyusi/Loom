@@ -1,11 +1,17 @@
-export interface DecisionNodeDSL {
+export interface DecisionBranchDSL {
+  target: string;
+  label: string;
+}
+interface DecisionNodeBaseDSL {
   type: 'decision';
   label: string;
-  yes: string;
-  no: string;
   group?: string;
   metadata?: Record<string, unknown>;
 }
+export type DecisionNodeDSL = DecisionNodeBaseDSL & (
+  | { yes: string; no: string; branches?: never }
+  | { branches: Record<string, DecisionBranchDSL>; yes?: never; no?: never }
+);
 export interface ResultNodeDSL {
   type: 'result';
   label: string;

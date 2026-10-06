@@ -16,6 +16,15 @@ beforeEach(() => {
 });
 afterEach(() => { destroyDiagrams(); document.body.innerHTML = ''; });
 describe('Automatic initialization', () => {
+  it('uses data-view for questionnaires and isolates invalid view attributes', async () => {
+    const root = document.querySelector<HTMLElement>('[data-diagram]')!;
+    root.dataset.view = 'questionnaire';
+    await initDiagrams(root);
+    expect(render).toHaveBeenCalledWith(root, '/graph.json', expect.objectContaining({view:'questionnaire'}));
+    destroyDiagrams(root); root.dataset.view = 'unknown';
+    expect((await initDiagrams(root))[0].error).toBeInstanceOf(TypeError);
+    expect(root.dataset.diagramState).toBe('error');
+  });
   it('deduplicates concurrent calls and individual destruction allows remount', async () => {
     const [first, second] = await Promise.all([initDiagrams(), initDiagrams()]);
     expect(render).toHaveBeenCalledTimes(2);

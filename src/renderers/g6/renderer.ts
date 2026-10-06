@@ -97,6 +97,7 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
           state: {
             highlight: { fill: '#dbeafe', stroke: '#2563eb', lineWidth: 3 },
             dim: { opacity: 0.22 },
+            current: { fill: '#fff3db', stroke: '#d97706', lineWidth: 3, cursor: 'pointer' },
             active: { lineWidth: 3 },
           },
         },
@@ -167,9 +168,11 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
       return next;
     };
     let currentPath: string[] | undefined;
+    let currentBranches: string[] | undefined;
+    let currentNodeId: string | undefined;
     const states = (path?: readonly string[]): Record<string, string[]> => {
       const visited = new Set(path);
-      const steps = new Set(path?.slice(1).map((target, index) => JSON.stringify([path[index], target])));
+      const steps = new Set(path?.slice(1).map((target, index) => JSON.stringify(currentBranches ? [path[index], target, currentBranches[index]] : [path[index], target])));
       const visitedGroups = new Set<string>();
       for (const node of diagram.nodes) {
         if (!visited.has(node.id)) continue;
@@ -178,8 +181,8 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
       }
       return Object.fromEntries([
         ...diagram.groups.map(group => [group.id, path ? [visitedGroups.has(group.id) ? 'highlight' : 'dim'] : []]),
-        ...diagram.nodes.map(node => [node.id, path ? [visited.has(node.id) ? 'highlight' : 'dim'] : []]),
-        ...diagram.edges.map(edge => [edge.id, path ? [steps.has(JSON.stringify([edge.source, edge.target])) ? 'highlight' : 'dim'] : []]),
+        ...diagram.nodes.map(node => [node.id, path ? [...(visited.has(node.id) ? ['highlight'] : ['dim']), ...(node.id === currentNodeId ? ['current'] : [])] : []]),
+        ...diagram.edges.map(edge => [edge.id, path ? [steps.has(JSON.stringify(currentBranches ? [edge.source, edge.target, edge.branch] : [edge.source, edge.target])) ? 'highlight' : 'dim'] : []]),
       ]);
     };
     const assertGroup = (id: string) => { if (!diagram.groups.some(group => group.id === id)) throw new Error(`Unknown group "${id}"`); };
@@ -228,11 +231,15 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
         syncGroupButtons();
         await graph.focusElement(id, false);
       }),
-      highlightPath(path) {
-        try { validateGraphPath(diagram, path); } catch (error) { return Promise.reject(error); }
+      highlightPath(path, pathOptions = {}) {
+        try { validateGraphPath(diagram, path, pathOptions); } catch (error) { return Promise.reject(error); }
         const snapshot = [...path];
+        const branches = pathOptions.branches ? [...pathOptions.branches] : undefined;
+        const nodeId = pathOptions.currentNodeId;
         return enqueue(async () => {
           currentPath = snapshot;
+          currentBranches = branches;
+          currentNodeId = nodeId;
           await graph.setElementState(states(snapshot), false);
           const sampleIndex = diagram.samples.findIndex(sample => sample.path.length === snapshot.length && sample.path.every((id, index) => id === snapshot[index]));
           if (selector) selector.value = sampleIndex >= 0 ? String(sampleIndex) : '';
@@ -243,6 +250,8 @@ export class G6Renderer implements DiagramRenderer<GraphIR, GraphDiagramInstance
       clearHighlight() {
         return enqueue(async () => {
           currentPath = undefined;
+          currentBranches = undefined;
+          currentNodeId = undefined;
           await graph.setElementState(states(), false);
           if (selector) selector.value = '';
           status.textContent = '完整决策图 · 拖动平移，滚轮缩放';

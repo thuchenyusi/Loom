@@ -1,0 +1,91 @@
+{
+  "$schema": "../schemas/decision.schema.json",
+  "type": "decision",
+  "id": "book-choices",
+  "start": "cyberpunk",
+  "nodes": {
+    "cyberpunk": {
+      "type": "decision",
+      "label": "想读赛博朋克吗？",
+      "branches": {
+        "yes": {
+          "label": "Yes · 想读",
+          "target": "style"
+        },
+        "no": {
+          "label": "No · 换个方向",
+          "target": "space"
+        },
+        "maybe": {
+          "label": "Maybe · 技术多一点，压抑少一点",
+          "target": "cryptonomicon"
+        }
+      }
+    },
+    "style": {
+      "type": "decision",
+      "label": "更喜欢哪种风格？",
+      "branches": {
+        "noir": {
+          "label": "黑色风格 / Noir",
+          "target": "neuromancer"
+        },
+        "samurai": {
+          "label": "武士 / Samurai",
+          "target": "snow-crash"
+        }
+      }
+    },
+    "space": {
+      "type": "decision",
+      "label": "想读与外星文明接触的故事？",
+      "yes": "contact",
+      "no": "odyssey"
+    },
+    "neuromancer": {
+      "type": "result",
+      "label": "Neuromancer · 神经漫游者"
+    },
+    "snow-crash": {
+      "type": "result",
+      "label": "Snow Crash · 雪崩"
+    },
+    "cryptonomicon": {
+      "type": "result",
+      "label": "Cryptonomicon · 密码宝典"
+    },
+    "contact": {
+      "type": "result",
+      "label": "Contact · 接触"
+    },
+    "odyssey": {
+      "type": "result",
+      "label": "2001: A Space Odyssey"
+    }
+  },
+  "samples": {
+    "maybe": {
+      "label": "Maybe · 技术与密码",
+      "path": [
+        "cyberpunk",
+        "cryptonomicon"
+      ]
+    },
+    "noir": {
+      "label": "Yes · 黑色赛博朋克",
+      "path": [
+        "cyberpunk",
+        "style",
+        "neuromancer"
+      ]
+    },
+    "space": {
+      "label": "No · 外星文明",
+      "path": [
+        "cyberpunk",
+        "space",
+        "contact"
+      ]
+    }
+  }
+}

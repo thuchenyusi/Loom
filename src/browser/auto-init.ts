@@ -34,7 +34,9 @@ export async function initDiagrams(root: ParentNode = document, options: RenderO
         const source = container.dataset.src;
         if (!source) throw new Error('Diagram container requires data-src');
         const height = container.dataset.height ? Number(container.dataset.height) : options.height;
-        const instance = await renderDiagram(container, source, { ...options, height, signal: controller.signal });
+        const view = container.dataset.view ?? options.view;
+        if (view !== undefined && view !== 'diagram' && view !== 'questionnaire') throw new TypeError('Unknown diagram view');
+        const instance = await renderDiagram(container, source, { ...options, height, view, signal: controller.signal });
         if (record.cancelled) { instance.destroy(); throw new DOMException('Initialization cancelled', 'AbortError'); }
         record.instance = instance;
         const destroy = instance.destroy.bind(instance);

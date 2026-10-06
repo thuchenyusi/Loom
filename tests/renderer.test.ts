@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import example from '../examples/decision.json';
 import combo from '../examples/combo.json';
+import multiBranch from '../examples/multi-branch.json';
 import { parseDecisionDSL } from '../src/core/parser';
 import { G6Renderer } from '../src/renderers/g6/renderer';
 import { renderDiagram } from '../src/browser/render';
@@ -35,6 +36,50 @@ beforeEach(() => {
 const container = () => document.querySelector<HTMLElement>('#graph')!;
 
 describe('G6 adapter lifecycle and sample paths', () => {
+  it('highlights selected branch identities and keeps the current marker through group changes', async () => {
+    const spec = structuredClone(combo);
+    const check = spec.nodes.entry;
+    const multi = { ...spec, nodes: { ...spec.nodes, entry: { type:'decision', label:check.label, branches:{yes:{target:check.yes,label:'A'},maybe:{target:check.yes,label:'B'},no:{target:check.no,label:'C'}} } } };
+    const ir = parseDecisionDSL(multi);
+    const instance = await new G6Renderer().mount(container(), ir);
+    const path = spec.samples.alice.path;
+    const branches = path.slice(1).map((target,index) => ir.edges.find(edge=>edge.source===path[index] && edge.target===target)!.branch);
+    branches[0] = 'maybe';
+    await instance.highlightPath(path, {branches, currentNodeId:'mfa'});
+    const states = mock.setElementState.mock.calls.at(-1)![0];
+    expect(states[ir.edges.find(edge=>edge.source==='entry' && edge.branch==='maybe')!.id]).toEqual(['highlight']);
+    expect(states[ir.edges.find(edge=>edge.source==='entry' && edge.branch==='yes')!.id]).toEqual(['dim']);
+    expect(states.mfa).toEqual(['highlight','current']);
+    await instance.collapse('authentication');
+    expect(mock.setElementState.mock.calls.at(-1)![0].mfa).toEqual(['highlight','current']);
+    const calls = mock.setElementState.mock.calls.length;
+    await expect(instance.highlightPath(path,{branches:['missing']})).rejects.toThrow('INVALID_SAMPLE_PATH');
+    await expect(instance.highlightPath(path,{currentNodeId:'missing'})).rejects.toThrow('INVALID_SAMPLE_PATH');
+    expect(mock.setElementState).toHaveBeenCalledTimes(calls);
+    await instance.clearHighlight();
+    await instance.highlightPath(path);
+    expect(mock.setElementState.mock.calls.at(-1)![0].mfa).toEqual(['highlight']);
+    instance.destroy();
+  });
+  it('renders custom branch labels and highlights a third branch with shared targets', async () => {
+    const spec = structuredClone(multiBranch);
+    spec.nodes.cyberpunk.branches.yes.target = 'cryptonomicon';
+    delete (spec.samples as Partial<typeof spec.samples>).noir;
+    const ir = parseDecisionDSL(spec);
+    const instance = await new G6Renderer().mount(container(), ir);
+    const data = mock.options.data as { edges: {id:string;data:{label:string}}[] };
+    const maybe = ir.edges.find(edge => edge.branch === 'maybe')!;
+    expect(data.edges.find(edge => edge.id === maybe.id)?.data.label).toBe('Maybe · 技术多一点，压抑少一点');
+    await instance.highlightPath(spec.samples.maybe.path);
+    const states = mock.setElementState.mock.calls.at(-1)![0];
+    for (const edge of ir.edges.filter(edge => edge.source === 'cyberpunk')) {
+      expect(states[edge.id]).toEqual([edge.target === 'cryptonomicon' ? 'highlight' : 'dim']);
+    }
+    expect(container().querySelector('select')!.value).toBe('0');
+    await instance.clearHighlight();
+    expect(Object.values(mock.setElementState.mock.calls.at(-1)![0]).every(value => Array.isArray(value) && !value.length)).toBe(true);
+    instance.destroy();
+  });
   it('maps nested combos, collapses hidden children and expands ancestors on focus', async () => {
     const ir = parseDecisionDSL(combo);
     const instance = await new G6Renderer().mount(container(), ir);

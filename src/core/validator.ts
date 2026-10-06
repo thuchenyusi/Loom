@@ -1,7 +1,8 @@
 import Ajv from 'ajv';
 import schema from '../../schemas/decision.schema.json';
 import type { DecisionDSL } from '../dsl/decision';
-import type { GraphIR, ValidationIssue, ValidationResult } from './types';
+import type { GraphIR, GraphPathOptions, ValidationIssue, ValidationResult } from './types';
+import { decisionBranches } from './branches';
 
 const validateShape = new Ajv({ allErrors: true }).compile<DecisionDSL>(schema);
 const pointer = (key: string) => key.replaceAll('~', '~0').replaceAll('/', '~1');
@@ -41,8 +42,9 @@ export function validateDecisionDSL(input: unknown): ValidationResult {
   for (const [id, node] of Object.entries(input.nodes)) {
     if (node.group && !groupExists(node.group)) errors.push({ code: 'UNKNOWN_GROUP', message: `Unknown group "${node.group}"`, path: `/nodes/${pointer(id)}/group` });
     if (node.type !== 'decision') continue;
-    for (const branch of ['yes', 'no'] as const) {
-      if (!exists(node[branch])) errors.push({ code: 'TARGET_NODE_NOT_FOUND', message: `Target "${node[branch]}" does not exist`, path: `/nodes/${pointer(id)}/${branch}` });
+    for (const branch of decisionBranches(node)) {
+      const path = node.branches ? `/nodes/${pointer(id)}/branches/${pointer(branch.id)}/target` : `/nodes/${pointer(id)}/${branch.id}`;
+      if (!exists(branch.target)) errors.push({ code: 'TARGET_NODE_NOT_FOUND', message: `Target "${branch.target}" does not exist`, path });
     }
   }
   for (const [id, sample] of Object.entries(input.samples ?? {})) {
@@ -53,7 +55,7 @@ export function validateDecisionDSL(input: unknown): ValidationResult {
         errors.push({ code: 'INVALID_SAMPLE_PATH', message: `Sample node "${nodeId}" does not exist`, path: `${path}/${index}` });
       } else if (index > 0 && exists(sample.path[index - 1])) {
         const previous = input.nodes[sample.path[index - 1]];
-        if (previous.type !== 'decision' || (previous.yes !== nodeId && previous.no !== nodeId)) {
+        if (previous.type !== 'decision' || !decisionBranches(previous).some(branch => branch.target === nodeId)) {
           errors.push({ code: 'INVALID_SAMPLE_PATH', message: `No edge from "${sample.path[index - 1]}" to "${nodeId}"`, path: `${path}/${index}` });
         }
       }
@@ -65,7 +67,7 @@ export function validateDecisionDSL(input: unknown): ValidationResult {
 }
 
 /** Shared by the adapter and selector. This checks connectivity without requiring a complete sample. */
-export function validateGraphPath(diagram: GraphIR, path: readonly string[]): void {
+export function validateGraphPath(diagram: GraphIR, path: readonly string[], options: GraphPathOptions = {}): void {
   const nodes = new Set(diagram.nodes.map(node => node.id));
   const errors: ValidationIssue[] = [];
   if (path.length === 0) errors.push({ code: 'INVALID_SAMPLE_PATH', message: 'Path must contain at least one node', path: '/path' });
@@ -75,5 +77,18 @@ export function validateGraphPath(diagram: GraphIR, path: readonly string[]): vo
       errors.push({ code: 'INVALID_SAMPLE_PATH', message: `No edge from "${path[index - 1]}" to "${id}"`, path: `/path/${index}` });
     }
   });
+  if (options.branches) {
+    if (options.branches.length !== Math.max(0, path.length - 1)) {
+      errors.push({ code: 'INVALID_SAMPLE_PATH', message: 'Provide one branch per path transition', path: '/branches' });
+    }
+    options.branches.forEach((branch, index) => {
+      if (!diagram.edges.some(edge => edge.source === path[index] && edge.target === path[index + 1] && edge.branch === branch)) {
+        errors.push({ code: 'INVALID_SAMPLE_PATH', message: 'Branch does not connect these path nodes', path: '/branches/' + index });
+      }
+    });
+  }
+  if (options.currentNodeId !== undefined && !path.includes(options.currentNodeId)) {
+    errors.push({ code: 'INVALID_SAMPLE_PATH', message: 'Current node must belong to the path', path: '/currentNodeId' });
+  }
   if (errors.length) throw new DiagramValidationError(errors);
 }

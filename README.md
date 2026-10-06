@@ -70,6 +70,56 @@ npm run build
 
 `data-src` 指向图的 JSON 文件，`data-height` 设置画布高度，单位为像素。同一页面可以放多个图，调用一次 `Diagram.init()` 即可。通过网站的 HTTP 服务访问页面，以便浏览器加载 JSON；资源路径按你的网站目录调整。
 
+## 多路分支与自定义标记
+
+决策节点可以使用 `branches` 定义任意数量的分支；每个分支必须指定目标 `target` 和显示在连线上的标记 `label`：
+
+```json
+{
+  "type": "decision",
+  "start": "genre",
+  "nodes": {
+    "genre": {
+      "type": "decision",
+      "label": "想读哪种小说？",
+      "branches": {
+        "fantasy": { "label": "奇幻", "target": "lotr" },
+        "scifi": { "label": "科幻", "target": "dune" },
+        "both": { "label": "两者都想", "target": "dark-tower" }
+      }
+    },
+    "lotr": { "type": "result", "label": "指环王" },
+    "dune": { "type": "result", "label": "沙丘" },
+    "dark-tower": { "type": "result", "label": "黑暗塔" }
+  }
+}
+```
+
+分支 key 是稳定标识，`label` 是可自定义的文字，两者互相独立。`branches` 至少包含一个分支，key、`target` 和 `label` 都必须是非空字符串。二路选择也可以用 `branches` 自定义标记，例如“机器人 / 火星人”。
+
+原有 `yes` / `no` 写法继续支持，默认标记仍为“是 / Yes”和“否 / No”。同一个节点必须选择一种写法，不能混用；同一张图可以同时包含两种节点。路径仍使用节点 ID，无需添加分支标识；多个分支指向同一目标时，对应的连线都会高亮。
+
+查看[小说推荐配置](examples/multi-branch.json)和[多路分支示例](examples/06-multi-branch.html)。
+
+## 决策问卷
+
+同一份决策图 JSON 可以生成逐题作答的问卷，无需另写问题和答案配置：
+
+```html
+<div data-diagram data-src="/assets/diagrams/decision.json" data-view="questionnaire"></div>
+<script src="/assets/loom/diagram.min.js"></script>
+<script>Diagram.init();</script>
+```
+
+读者选择分支后进入下一题，到达 `result` 节点时显示答案。问卷支持：
+
+- 返回上一题，并查看原来的选择。
+- 打开流程图，查看已访问路线和当前位置，点击已访问节点返回对应问题。
+- 在访问记录中跳到任意已访问步骤，包括之前的结果；循环流程也能按访问次序跳转。
+- 返回时保留后续历史；选择原选项继续原路线，改选时更新后续问题与结果。
+
+问卷兼容 `yes/no` 和多路 `branches`。查看[小说推荐问卷示例](examples/07-questionnaire.html)，接口见 [API 参考](docs/api.md#问卷视图)。
+
 ## 可展开的分组
 
 在决策图中，用 `groups` 定义分组，用节点的 `group` 指定归属。分组可通过 `parent` 嵌套，`collapsed` 设置初始折叠状态。
@@ -134,6 +184,8 @@ if (graph.kind === 'graph') {
 | [可展开分组](examples/03-collapsible-groups.html) | 嵌套分组及展开、收起 |
 | [交互函数图](examples/04-interactive-function.html) | 拖动点、坐标和变化事件 |
 | [同页多图](examples/05-user-manual.html) | 自动初始化决策图与函数图 |
+| [多路分支](examples/06-multi-branch.html) | 三路选择与自定义分支标记 |
+| [决策问卷](examples/07-questionnaire.html) | 逐题选择、返回与流程图跳转 |
 
 示例链接指向仓库源码，可在构建后通过 HTTP 服务预览。[开发指南](docs/development.md)包含运行示例、构建和测试的步骤。
 

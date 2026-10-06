@@ -37,9 +37,7 @@
             "additionalProperties": false,
             "required": [
               "type",
-              "label",
-              "yes",
-              "no"
+              "label"
             ],
             "properties": {
               "type": {
@@ -63,8 +61,65 @@
               "group": {
                 "type": "string",
                 "minLength": 1
+              },
+              "branches": {
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": {
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "target",
+                    "label"
+                  ],
+                  "properties": {
+                    "target": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
               }
-            }
+            },
+            "oneOf": [
+              {
+                "required": [
+                  "yes",
+                  "no"
+                ],
+                "not": {
+                  "required": [
+                    "branches"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "branches"
+                ],
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "yes"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "no"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
           },
           {
             "type": "object",

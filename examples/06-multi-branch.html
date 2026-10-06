@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loom · 多路分支</title>
+<style>body{font:16px system-ui;background:#f3f6fb;color:#182b49;margin:24px}main{max-width:1200px;margin:auto}</style>
+<main><h1>多路分支 · 小说推荐</h1><p>受 SF Signal 小说推荐图启发的简化示例。支持三路选择、自定义分支标记和路径高亮。</p><div id="diagram"></div><p id="error" role="alert"></p></main>
+<script type="module">
+  try {
+    let renderDiagram;
+    if (new URLSearchParams(location.search).get('format') === 'iife') {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '../dist/diagram.min.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('无法加载 Loom 脚本'));
+        document.head.append(script);
+      });
+      renderDiagram = window.Diagram.renderDiagram;
+    } else {
+      ({ renderDiagram } = await import('../dist/diagram.js'));
+    }
+    window.demo = await renderDiagram(document.querySelector('#diagram'), './multi-branch.json', { height: 640 });
+  } catch (error) { document.querySelector('#error').textContent = error.message; }
+</script>
+</html>

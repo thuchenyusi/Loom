@@ -1,6 +1,7 @@
 import type { DecisionDSL } from '../dsl/decision';
 import type { GraphEdgeIR, GraphIR } from './types';
 import { DiagramValidationError, validateDecisionDSL } from './validator';
+import { decisionBranches } from './branches';
 
 export function parseDecisionDSL(input: unknown): GraphIR {
   const result = validateDecisionDSL(input);
@@ -9,9 +10,9 @@ export function parseDecisionDSL(input: unknown): GraphIR {
   const edges: GraphEdgeIR[] = [];
   for (const [id, node] of Object.entries(spec.nodes)) {
     if (node.type === 'decision') {
-      for (const branch of ['yes', 'no'] as const) {
+      for (const branch of decisionBranches(node)) {
         // JSON tuples keep edge IDs distinct even for unusual user-supplied IDs.
-        edges.push({ id: `edge:${JSON.stringify([id, branch])}`, source: id, target: node[branch], branch, label: branch === 'yes' ? '是 / Yes' : '否 / No' });
+        edges.push({ id: `edge:${JSON.stringify([id, branch.id])}`, source: id, target: branch.target, branch: branch.id, label: branch.label });
       }
     }
   }
